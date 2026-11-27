@@ -1,7 +1,28 @@
 import streamlit as st
 import psycopg2
-
+from datetime import datetime
 LOGIN_HEARTBEATTIME = 5
+
+# TOOLS FUNCTIONS
+
+def time():
+    with st.expander("Time tool"):
+        if st.button("show time"):
+            st.write(datetime.now())
+    
+
+
+TOOLS_DICT = {
+    "time": {
+        "description": "Shows your agent the current time.",
+        "tool": time()
+    
+    }
+}
+
+
+
+
 
 def get_conn():
     return psycopg2.connect(
@@ -25,7 +46,9 @@ def init_chats(chat_room):
     cur.execute(f'''
         CREATE TABLE IF NOT EXISTS statuses_{int(chat_room)}(
             user_type VARCHAR PRIMARY KEY,
-            sign_in_activity TIMESTAMP NOT NULL
+            sign_in_activity TIMESTAMP NOT NULL,
+            system_prompt VARCHAR,
+            tools TEXT[]
         )
     ''')
     conn.commit()
@@ -102,7 +125,7 @@ def check_if_active():
     if st.session_state['messages']:
         return st.session_state["messages"][-1]["name"] == st.session_state["user_type"]
     return False
-
+   
 # Session state management
 if "messages" not in st.session_state:
     st.session_state['messages'] = []
@@ -112,7 +135,14 @@ if "user_type" not in st.session_state:
     st.session_state["user_type"] = None
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
+if "system_prompt" not in st.session_state:
+    st.session_state["system_prompt"] = None
+if "tools" not in st.session_state:
+    st.session_state["tools"] = None
 
+
+### UI
+#Dialogs
 @st.dialog("Pick your room", dismissible=False)
 def room_pick():
     # Use local variables inside the dialog so session_state only updates on button click
@@ -129,6 +159,7 @@ def room_pick():
             st.session_state["user_type"] = role
             st.session_state["messages"] = return_messages(room)
             st.session_state["logged_in"] = True
+            # CHECK FOR SYSTEM PROMPT AND TOOLS
             st.rerun()
 
 @st.dialog("SUPER SECRET AGENT CHATROOM", width = "large")
@@ -136,6 +167,14 @@ def agent_chatroom():
     st.iframe(
         "https://docs.google.com/document/d/1rDNM75iNtGMtQRD2aBI4B0eqLGlzIDGyK69Po1suplw/edit?usp=sharing",
     )
+
+@st.dialog("System prompt and tools", dismissible=False):
+    system_prompt = st.text_area("Write your system prompt here")
+    tools = st.multiselect("pick tools for your agent", options = TOOLS_DICT.keys())
+    if st.button("create/update agent"):
+        #ADD FUNC HERE THAT SENDS POSTGRES QUERY
+        st.rerun()
+
 
 if not st.session_state["logged_in"]:
     room_pick()
