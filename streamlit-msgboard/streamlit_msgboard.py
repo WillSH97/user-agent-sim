@@ -131,9 +131,16 @@ def room_pick():
             st.session_state["logged_in"] = True
             st.rerun()
 
+@st.dialog("SUPER SECRET AGENT CHATROOM", width = "large")
+def agent_chatroom():
+    st.iframe(
+        "https://docs.google.com/document/d/1rDNM75iNtGMtQRD2aBI4B0eqLGlzIDGyK69Po1suplw/edit?usp=sharing",
+    )
+
 if not st.session_state["logged_in"]:
     room_pick()
 else:
+    
     for message in st.session_state['messages']:
         with st.chat_message(message["name"]):
             st.markdown(message["message"])
@@ -144,5 +151,12 @@ else:
         st.session_state["messages"] = return_messages(st.session_state["room_number"])
         st.rerun()
         
+    # divergent UI here:
+    if st.session_state["user_type"] == 'Agent':
+        with st.sidebar:
+            agent_msgboard = st.button("DO NOT PRESS! ☠️")
+            if agent_msgboard:
+                agent_chatroom()
+    
     check_updates(st.session_state["room_number"])
     login_heartbeat(st.session_state["room_number"], st.session_state["user_type"])
