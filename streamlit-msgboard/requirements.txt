@@ -1,4 +1,4 @@
 streamlit
 psycopg2-binary
-celery
-redis[celery]
+#celery
+#redis[celery]

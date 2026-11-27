@@ -1,56 +1,13 @@
 import streamlit as st
 import time
 import os
-from celery import Celery
 import psycopg2
 
-# REDIS_BROKER=os.environ.get("REDIS_BROKER")
-# REDIS_BACKEND=os.environ.get("REDIS_BACKEND")
-# print(REDIS_BROKER)
-# print(REDIS_BACKEND)
-
-# celery_app = Celery('worker', broker=REDIS_BROKER, backend=REDIS_BACKEND)
-
-#support func
-
-
-
-'''
-just some inline brainstorming
-
-message type should be: 
-        {
-        text: text,
-        image: bytestring,
-        }
-
-
-upon init, we get a dialogue box. This dialogue box asks what room number you are in. When asked, can be limited from 1-10 initially (in code).
-When confirmed, run CREATE TABLE query(s):
-
-CREATE TABLE IF NOT EXISTS {number}(
-id SERIAL PRIMARY KEY,
-user_type VARCHAR NOT NULL,
-message JSON NOT NULL, # THIS PART I MADE UP
-personality VARCHAR NOT NULL
-)
-
-
-#this one will be made up
-CREATE TABLE IF NOT EXISTS {number_statuses}(
-user_type VARCHAR PRIMARY KEY
-signed_in BOOL NOT NULL,
-tools_avail JSON/BSON ?????
-)
-
-I'll also add a fragment here that is constantly sending a ping to a celery worker or fastapi endpoint which will log people off when inactive????
-
-'''
-
 #upon init
-
-
 def init_chats(chat_room):
+    '''
+    creates tables for chat rooms - one is chat history and other stores login, system prompt, tools
+    '''
     conn = psycopg2.connect(    
         host="db",                     # Matches the docker-compose service name
         database="test",
@@ -136,10 +93,26 @@ VALUES (%s, %s);
     cur.close()
     conn.close()
 
+@st.fragment(parallel = True, run_every="1s")
+def check_updates(chat_room, user_type):
+    '''
+    "daemon" process that constantly:
+        - checks server for updates on msgs
+    '''
 
+    chat_hist = return_messages(chat_room)
+    if chat_hist != st.session_state['messages']:
+        st.session_state['messages'] = chat_hist
+        st.rerun()
 
+#dumb support script
+def check_if_active():
+    if st.session_state['messages']:
+        return st.session_state["messages"][-1]["name"]==st.session_state["user_type"]
+    else:
+        return False
 
-
+# session state mgmt
 if "messages" not in st.session_state:
     st.session_state['messages'] = []
 
@@ -148,14 +121,6 @@ if "room_number" not in st.session_state:
 
 if "user_type" not in st.session_state:
     st.session_state["user_type"] = None
-
-@st.fragment(parallel = True, run_every="1s")
-def check_updates(chat_room):
-    #add ping in here too?
-    chat_hist = return_messages(chat_room)
-    if chat_hist != st.session_state['messages']:
-        st.session_state['messages'] = chat_hist
-        st.rerun()
         
 
 ### UI BULLSHIT
@@ -173,7 +138,7 @@ def room_pick():
     )
     if st.button("enter room"):
         init_chats(st.session_state["room_number"])
-        
+
         #FUNC TO CREATE ROOM
         # IF ALREADY CREATED/LOGGED IN, DON'T LET THEM LOG IN - "this acct is already logged in!"
         # else create it
@@ -190,10 +155,10 @@ else:
             # if message["message"]["image"]: #<- I'll implement this properly in a sec
             #     st.image(message["message"]["image"])
             
-    chatinput = st.chat_input("write something")
+    chatinput = st.chat_input("write something", disabled = check_if_active())# st.session_state["waiting_for_response"])
     
     if chatinput: # and chatinput.text: #<- only need this for when multimodal
         send_message(st.session_state["room_number"], st.session_state["user_type"], chatinput)
         
         
-    check_updates(st.session_state["room_number"])
+    check_updates(st.session_state["room_number"], st.session_state["user_type"])
