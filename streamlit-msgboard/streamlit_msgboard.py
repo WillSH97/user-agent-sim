@@ -15,7 +15,7 @@ def time():
 TOOLS_DICT = {
     "time": {
         "description": "Shows your agent the current time.",
-        "tool": time()
+        "tool": time
     
     }
 }
